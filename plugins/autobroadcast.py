@@ -1,14 +1,16 @@
 import asyncio
-
+import datetime
+import pytz
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from config import AUTO_GCAST, AUTO_GCAST_MSG, LOG_GROUP_ID
 from VIPMUSIC import app
 from VIPMUSIC.utils.database import get_served_chats
 
-# Convert AUTO_GCAST to boolean based on "On" or "Off"
+# Convert AUTO_GCAST to boolean
 AUTO_GCASTS = AUTO_GCAST.strip().lower() == "on"
 
+# Image and Messages
 START_IMG_URLS = "https://envs.sh/BjZ.jpg"
 
 MESSAGE = f"""**๏ ᴛʜɪs ɪs ᴀᴅᴠᴀɴᴄᴇᴅ ᴍᴜsɪᴄ ᴘʟᴀʏᴇʀ ʙᴏᴛ ғᴏʀ ᴛᴇʟᴇɢʀᴀᴍ ɢʀᴏᴜᴘs + ᴄʜᴀɴɴᴇʟs ᴠᴄ. 💌
@@ -25,8 +27,8 @@ BUTTON = InlineKeyboardMarkup(
     [
         [
             InlineKeyboardButton(
-                "๏ ᴋɪᴅɴᴀᴘ ᴍᴇ ๏",
-                url=f"https://t.me/AARU_MUSIC_XBOT?startgroup=s&admin=delete_messages+manage_video_chats+pin_messages+invite_users",
+                "๏ ᴀᴅᴅ ᴍᴇ ๏",
+                url=f"https://t.me/aaru_music_rbot?startgroup=s&admin=delete_messages+manage_video_chats+pin_messages+invite_users",
             )
         ]
     ]
@@ -34,23 +36,27 @@ BUTTON = InlineKeyboardMarkup(
 
 caption = f"""{AUTO_GCAST_MSG}""" if AUTO_GCAST_MSG else MESSAGE
 
-TEXT = """**ᴀᴜᴛᴏ ɢᴄᴀsᴛ ɪs ᴇɴᴀʙʟᴇᴅ sᴏ ᴀᴜᴛᴏ ɢᴄᴀsᴛ/ʙʀᴏᴀᴅᴄᴀsᴛ ɪs ᴅᴏɪɴɢ ɪɴ ᴀʟʟ ᴄʜᴀᴛs ᴄᴏɴᴛɪɴᴜᴏᴜsʟʏ.**\n**ɪᴛ ᴄᴀɴ ʙᴇ sᴛᴏᴘᴘᴇᴅ ʙʏ ᴘᴜᴛ ᴠᴀʀɪᴀʙʟᴇ [ᴀᴜᴛᴏ_ɢᴄᴀsᴛ = (Off)]**"""
+TEXT = """**ᴀᴜᴛᴏ ɢᴄᴀsᴛ ɪs ᴇɴᴀʙʟᴇᴅ sᴏ ᴀᴜᴛᴏ ɢᴄᴀsᴛ/ʙʀᴏᴀᴅᴄᴀsᴛ ɪs ᴅᴏɪɴɢ ɪɴ ᴀʟʟ ᴄʜᴀᴛs ᴏɴ sᴄʜᴇᴅᴜʟᴇᴅ ᴛɪᴍᴇ.**\n**ɪᴛ ᴄᴀɴ ʙᴇ sᴛᴏᴘᴘᴇᴅ ʙʏ ᴘᴜᴛ ᴠᴀʀɪᴀʙʟᴇ [ᴀᴜᴛᴏ_ɢᴄᴀsᴛ = (Off)]**"""
 
+# Scheduled Times in 24-hour format (Indian Time)
+# 05:00 AM, 09:00 AM, 02:00 PM (14:00), 05:00 PM (17:00), 07:00 PM (19:00), 12:00 AM (00:00)
+SCHEDULED_TIMES = ["05:00", "09:00", "14:00", "17:00", "19:00", "00:00"]
+
+# Timezone set to India
+IST = pytz.timezone('Asia/Kolkata')
 
 async def send_text_once():
     try:
         await app.send_message(LOG_GROUP_ID, TEXT)
-    except Exception as e:
+    except Exception:
         pass
-
 
 async def send_message_to_chats():
     try:
         chats = await get_served_chats()
-
         for chat_info in chats:
             chat_id = chat_info.get("chat_id")
-            if isinstance(chat_id, int):  # Check if chat_id is an integer
+            if isinstance(chat_id, int):
                 try:
                     await app.send_photo(
                         chat_id,
@@ -58,29 +64,35 @@ async def send_message_to_chats():
                         caption=caption,
                         reply_markup=BUTTON,
                     )
-                    await asyncio.sleep(
-                        20
-                    )  # Sleep for 20 seconds between sending messages
-                except Exception as e:
-                    pass  # Do nothing if an error occurs while sending message
-    except Exception as e:
-        pass  # Do nothing if an error occurs while fetching served chats
-
+                    # Har message ke baad 3 second ka gap taaki bot spam mein na aaye
+                    await asyncio.sleep(3)
+                except Exception:
+                    pass 
+    except Exception:
+        pass
 
 async def continuous_broadcast():
-    await send_text_once()  # Send TEXT once when bot starts
+    # Bot start hone par ek baar log group mein message bhejega
+    await send_text_once() 
 
     while True:
         if AUTO_GCASTS:
-            try:
-                await send_message_to_chats()
-            except Exception as e:
-                pass
+            # India ka current time check karein
+            now_ist = datetime.datetime.now(IST)
+            current_time = now_ist.strftime("%H:%M")
+            
+            if current_time in SCHEDULED_TIMES:
+                try:
+                    await send_message_to_chats()
+                except Exception:
+                    pass
+                
+                # Ek minute ka sleep taaki ussi minute mein dobara broadcast na ho
+                await asyncio.sleep(60)
 
-        # Wait for 100000 seconds before next broadcast
-        await asyncio.sleep(100000)
+        # Har 30 seconds mein check karega ki time hua ya nahi
+        await asyncio.sleep(30)
 
-
-# Start the continuous broadcast loop if AUTO_GCASTS is True
+# Start the task
 if AUTO_GCASTS:
     asyncio.create_task(continuous_broadcast())
