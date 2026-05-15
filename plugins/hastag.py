@@ -1,6 +1,5 @@
 from pyrogram import filters
 from VIPMUSIC import app
-from TheApi import api
 
 
 @app.on_message(filters.command("hastag"))
