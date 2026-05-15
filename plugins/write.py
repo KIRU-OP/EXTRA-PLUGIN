@@ -1,5 +1,4 @@
 from pyrogram import filters
-from TheApi import api
 
 from VIPMUSIC import app
 
