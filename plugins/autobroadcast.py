@@ -36,13 +36,12 @@ BUTTON = InlineKeyboardMarkup(
 
 caption = f"""{AUTO_GCAST_MSG}""" if AUTO_GCAST_MSG else MESSAGE
 
-TEXT = """**ᴀᴜᴛᴏ ɢᴄᴀsᴛ ɪs ᴇɴᴀʙʟᴇᴅ sᴏ ᴀᴜᴛᴏ ɢᴄᴀsᴛ/ʙʀᴏᴀᴅᴄᴀsᴛ ɪs ᴅᴏɪɴɢ ɪɴ ᴀʟʟ ᴄʜᴀᴛs ᴏɴ sᴄʜᴇᴅᴜʟᴇᴅ ᴛɪᴍᴇ.**\n**ɪᴛ ᴄᴀɴ ʙᴇ sᴛᴏᴘᴘᴇᴅ ʙʏ ᴘᴜᴛ ᴠᴀʀɪᴀʙʟᴇ [ᴀᴜᴛᴏ_ɢᴄᴀsᴛ = (Off)]**"""
+TEXT = """**ᴀᴜᴛᴏ ɢᴄᴀsᴛ ɪs ᴇɴᴀʙʟᴇᴅ sᴏ ᴀᴜᴛᴏ ɢᴄᴀsᴛ/ʙʀᴏᴀᴅᴄᴀsᴛ ɪs ᴅᴏɪɴɢ ɪɴ ᴀʟʟ ᴄʜᴀᴛs ᴇᴠᴇʀʏ 10 ʜᴏᴜʀs.**\n**ɪᴛ ᴄᴀɴ ʙᴇ sᴛᴏᴘᴘᴇᴅ ʙʏ ᴘᴜᴛ ᴠᴀʀɪᴀʙʟᴇ [ᴀᴜᴛᴏ_ɢᴄᴀsᴛ = (Off)]**"""
 
-# Scheduled Times in 24-hour format (Indian Time)
-# 05:00 AM, 09:00 AM, 02:00 PM (14:00), 05:00 PM (17:00), 07:00 PM (19:00), 12:00 AM (00:00)
-SCHEDULED_TIMES = ["05:00", "09:00", "14:00", "17:00", "19:00", "00:00"]
+# Broadcast interval: har 10 ghante mein ek baar
+BROADCAST_INTERVAL_SECONDS = 10 * 60 * 60  # 10 hours
 
-# Timezone set to India
+# Timezone set to India (rakha gaya hai agar future mein logging ke liye chahiye ho)
 IST = pytz.timezone('Asia/Kolkata')
 
 async def send_text_once():
@@ -73,25 +72,20 @@ async def send_message_to_chats():
 
 async def continuous_broadcast():
     # Bot start hone par ek baar log group mein message bhejega
-    await send_text_once() 
+    await send_text_once()
 
     while True:
         if AUTO_GCASTS:
-            # India ka current time check karein
-            now_ist = datetime.datetime.now(IST)
-            current_time = now_ist.strftime("%H:%M")
-            
-            if current_time in SCHEDULED_TIMES:
-                try:
-                    await send_message_to_chats()
-                except Exception:
-                    pass
-                
-                # Ek minute ka sleep taaki ussi minute mein dobara broadcast na ho
-                await asyncio.sleep(60)
+            try:
+                await send_message_to_chats()
+            except Exception:
+                pass
 
-        # Har 30 seconds mein check karega ki time hua ya nahi
-        await asyncio.sleep(30)
+            # Ab agla broadcast seedha 10 ghante baad hoga
+            await asyncio.sleep(BROADCAST_INTERVAL_SECONDS)
+        else:
+            # Agar AUTO_GCASTS off hai to har 30 sec mein recheck karega
+            await asyncio.sleep(30)
 
 # Start the task
 if AUTO_GCASTS:
