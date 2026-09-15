@@ -15,3 +15,6 @@ aiohttp
 telegraph
 PyGithub
 tzdata
+pytgcalls>=2.1.4
+yt-dlp
+ 
