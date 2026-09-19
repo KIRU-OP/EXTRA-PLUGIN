@@ -16,7 +16,7 @@ from config import OWNER_ID
 # ══════════════════════════════════════════════════════════════
 
 REPO_URL = "https://github.com/KIRU-OP/VIP-MUSIC"
-FORK_URL = f"{REPO_URL}/fork"
+FORK_URL = f"https://github.com/KIRU-OP/VIP-MUSIC/fork"
 BANNER = "https://envs.sh/wWo.jpg"
 
 EXCLUDED_CHAT = -1003760069374  # /gadd is chat me bot add nahi karega
