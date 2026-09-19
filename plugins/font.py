@@ -3,6 +3,60 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from pyrogram import filters
 
 
+_UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+_LOWER = "abcdefghijklmnopqrstuvwxyz"
+_DIGITS = "0123456789"
+
+
+def _translate(text, upper=None, lower=None, digits=None, extra=None):
+    """A-Z / a-z / 0-9 ko dusre characters se replace karta hai.
+    upper, lower, digits: string ya list (same length). Baaki characters jaise hain waise rehte hain."""
+    table = {}
+    if upper:
+        table.update(zip(_UPPER, upper))
+    if lower:
+        table.update(zip(_LOWER, lower))
+    if digits:
+        table.update(zip(_DIGITS, digits))
+    if extra:
+        table.update(extra)
+    return "".join(table.get(ch, ch) for ch in text)
+
+
+def _offset(text, upper=None, lower=None, digits=None):
+    """Unicode ke continuous block (start code point) se convert karta hai."""
+    table = {}
+    if upper:
+        table.update({chr(65 + i): chr(upper + i) for i in range(26)})
+    if lower:
+        table.update({chr(97 + i): chr(lower + i) for i in range(26)})
+    if digits:
+        table.update({chr(48 + i): chr(digits + i) for i in range(10)})
+    return "".join(table.get(ch, ch) for ch in text)
+
+
+def _mark(text, mark):
+    """Har English letter/digit ke baad ek combining mark laga deta hai."""
+    return "".join(ch + mark if ch.isascii() and ch.isalnum() else ch for ch in text)
+
+
+def _wrap(text, left, right):
+    return f"{left}{text}{right}"
+
+
+_ABOVE = ["\u030d", "\u030e", "\u0304", "\u0305", "\u033f", "\u0311", "\u0306", "\u0310", "\u0352", "\u0357", "\u0351", "\u0307", "\u0308", "\u030a"]
+_MIDDLE = ["\u0334", "\u0335", "\u0336", "\u0337", "\u0338"]
+_BELOW = ["\u0316", "\u0317", "\u0318", "\u0319", "\u031c", "\u031d", "\u031e", "\u031f", "\u0320", "\u0324", "\u0325", "\u0326", "\u0329", "\u032a"]
+
+_FLIP = {
+    **dict(zip("abcdefghijklmnopqrstuvwxyz", "ɐqɔpǝɟƃɥᴉɾʞlɯuodbɹsʇnʌʍxʎz")),
+    **dict(zip("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "∀ᗺƆᗡƎℲ⅁HIſ⋊˥WNOԀΌᴚS⊥∩ΛMX⅄Z")),
+    **dict(zip("0123456789", "0Ɩᄅƹㄣϛ9ㄥ86")),
+    "!": "¡", "?": "¿", ".": "˙", ",": "'", "'": ",", "(": ")", ")": "(",
+    "[": "]", "]": "[", "<": ">", ">": "<", "_": "‾", "&": "⅋",
+}
+
+
 class Fonts:
     def typewriter(text):
         style = {
@@ -2365,184 +2419,260 @@ class Fonts:
             text = text.replace(i, j)
         return text
 
+    # ==================== NAYE FONTS ====================
+
+    def fullwidth(text):
+        return _offset(text, 0xFF21, 0xFF41, 0xFF10)
+
+    def spaced(text):
+        return " ".join(text)
+
+    def upside_down(text):
+        return "".join(_FLIP.get(ch, ch) for ch in reversed(text))
+
+    def reversed_text(text):
+        return text[::-1]
+
+    def cyrillic(text):
+        return _translate(
+            text,
+            upper=["Λ", "Б", "Ͼ", "Ð", "Σ", "Ғ", "Ǥ", "Ħ", "Ї", "Ĵ", "Қ", "Ł", "Ϻ", "И", "Ө", "Ρ", "Ǫ", "Я", "Ѕ", "Ƭ", "Ц", "Ѵ", "Щ", "Ж", "Ү", "Ƶ"],
+            lower=["α", "в", "¢", "∂", "є", "ƒ", "g", "н", "ι", "נ", "к", "ℓ", "м", "η", "σ", "ρ", "q", "я", "ѕ", "т", "υ", "ν", "ω", "χ", "у", "z"],
+        )
+
+    def currency(text):
+        chars = ["₳", "฿", "₵", "Đ", "Ɇ", "₣", "₲", "Ⱨ", "ł", "J", "₭", "Ⱡ", "₥", "₦", "Ø", "₱", "Q", "Ɽ", "₴", "₮", "Ʉ", "V", "₩", "Ӿ", "Ɏ", "Ⱬ"]
+        return _translate(text, upper=chars, lower=chars)
+
+    def thai(text):
+        chars = ["ค", "๒", "ς", "๔", "є", "Ŧ", "ﻮ", "ђ", "เ", "ן", "к", "ɭ", "๓", "ภ", "๏", "ק", "ợ", "г", "ร", "Շ", "ย", "ש", "ฬ", "א", "ץ", "չ"]
+        return _translate(text, upper=chars, lower=chars)
+
+    def parenthesized(text):
+        table = {chr(65 + i): chr(0x249C + i) for i in range(26)}
+        table.update({chr(97 + i): chr(0x249C + i) for i in range(26)})
+        table.update({str(d): chr(0x2474 + d - 1) for d in range(1, 10)})
+        return "".join(table.get(ch, ch) for ch in text)
+
+    def overline(text):
+        return _mark(text, "\u0305")
+
+    def double_underline(text):
+        return _mark(text, "\u0333")
+
+    def dot_below(text):
+        return _mark(text, "\u0323")
+
+    def dot_above(text):
+        return _mark(text, "\u0307")
+
+    def rings(text):
+        return _mark(text, "\u030a")
+
+    def tilde(text):
+        return _mark(text, "\u0303")
+
+    def cross(text):
+        return _mark(text, "\u0353")
+
+    def bridge(text):
+        return _mark(text, "\u032a")
+
+    def rockdots(text):
+        return _mark(text, "\u0308")
+
+    def glitch(text):
+        out = []
+        for i, ch in enumerate(text):
+            out.append(ch)
+            if ch.isascii() and ch.isalnum():
+                out.append(_ABOVE[i % len(_ABOVE)])
+                out.append(_MIDDLE[i % len(_MIDDLE)])
+                out.append(_BELOW[(i * 2 + 1) % len(_BELOW)])
+        return "".join(out)
+
+    def sparkles(text):
+        return _wrap(text, "✨ ", " ✨")
+
+    def brackets(text):
+        return _wrap(text, "【", "】")
+
+    def japanese(text):
+        return _wrap(text, "『", "』")
+
+    def star(text):
+        return _wrap(text, "★彡 ", " 彡★")
+
+    def hearts(text):
+        return _wrap(text, "♡ ", " ♡")
+
+    def royal(text):
+        return _wrap(text, "꧁༒ ", " ༒꧂")
+
+    def flower(text):
+        return _wrap(text, "✿ ", " ✿")
+
+    def wave(text):
+        return _wrap(text, "·.·´¯´·.·• ", " •·.·´¯´·.·")
+
+    def pointer(text):
+        return _wrap(text, "»»—— ", " ——««")
+
+    def fire(text):
+        return _wrap(text, "🔥 ", " 🔥")
+
+    def crown(text):
+        return _wrap(text, "♛ ", " ♛")
+
+
+FONT_LIST = [
+    # ---- purane fonts (pehle jaisi keys, purani buttons kaam karte rahenge) ----
+    ("𝚃𝚢𝚙𝚎𝚠𝚛𝚒𝚝𝚎𝚛", "typewriter", Fonts.typewriter),
+    ("𝕆𝕦𝕥𝕝𝕚𝕟𝕖", "outline", Fonts.outline),
+    ("𝐒𝐞𝐫𝐢𝐟", "serif", Fonts.serief),
+    ("𝑺𝒆𝒓𝒊𝒇", "bold_cool", Fonts.bold_cool),
+    ("𝑆𝑒𝑟𝑖𝑓", "cool", Fonts.cool),
+    ("Sᴍᴀʟʟ Cᴀᴘs", "small_cap", Fonts.smallcap),
+    ("𝓈𝒸𝓇𝒾𝓅𝓉", "script", Fonts.script),
+    ("𝓼𝓬𝓻𝓲𝓹𝓽", "script_bolt", Fonts.bold_script),
+    ("ᵗⁱⁿʸ", "tiny", Fonts.tiny),
+    ("ᑕOᗰIᑕ", "comic", Fonts.comic),
+    ("𝗦𝗮𝗻𝘀", "sans", Fonts.san),
+    ("𝙎𝙖𝙣𝙨", "slant_sans", Fonts.slant_san),
+    ("𝘚𝘢𝘯𝘴", "slant", Fonts.slant),
+    ("𝖲𝖺𝗇𝗌", "sim", Fonts.sim),
+    ("Ⓒ︎Ⓘ︎Ⓡ︎Ⓒ︎Ⓛ︎Ⓔ︎Ⓢ︎", "circles", Fonts.circles),
+    ("🅒︎🅘︎🅡︎🅒︎🅛︎🅔︎🅢︎", "circle_dark", Fonts.dark_circle),
+    ("𝔊𝔬𝔱𝔥𝔦𝔠", "gothic", Fonts.gothic),
+    ("𝕲𝖔𝖙𝖍𝖎𝖈", "gothic_bolt", Fonts.bold_gothic),
+    ("C͜͡l͜͡o͜͡u͜͡d͜͡s͜͡", "cloud", Fonts.cloud),
+    ("H̆̈ă̈p̆̈p̆̈y̆̈", "happy", Fonts.happy),
+    ("S̑̈ȃ̈d̑̈", "sad", Fonts.sad),
+    ("🇸 🇵 🇪 🇨 🇮 🇦 🇱 ", "special", Fonts.special),
+    ("🅂🅀🅄🄰🅁🄴🅂", "squares", Fonts.square),
+    ("🆂︎🆀︎🆄︎🅰︎🆁︎🅴︎🆂︎", "squares_bold", Fonts.dark_square),
+    ("ꪖꪀᦔꪖꪶꪊᥴ𝓲ꪖ", "andalucia", Fonts.andalucia),
+    ("爪卂几ᘜ卂", "manga", Fonts.manga),
+    ("S̾t̾i̾n̾k̾y̾", "stinky", Fonts.stinky),
+    ("B̥ͦu̥ͦb̥ͦb̥ͦl̥ͦe̥ͦs̥ͦ", "bubbles", Fonts.bubbles),
+    ("U͟n͟d͟e͟r͟l͟i͟n͟e͟", "underline", Fonts.underline),
+    ("꒒ꍏꀷꌩꌃꀎꁅ", "ladybug", Fonts.ladybug),
+    ("R҉a҉y҉s҉", "rays", Fonts.rays),
+    ("B҈i҈r҈d҈s҈", "birds", Fonts.birds),
+    ("S̸l̸a̸s̸h̸", "slash", Fonts.slash),
+    ("s⃠t⃠o⃠p⃠", "stop", Fonts.stop),
+    ("S̺͆k̺͆y̺͆l̺͆i̺͆n̺͆e̺͆", "skyline", Fonts.skyline),
+    ("A͎r͎r͎o͎w͎s͎", "arrows", Fonts.arrows),
+    ("ዪሀክቿነ", "qvnes", Fonts.rvnes),
+    ("S̶t̶r̶i̶k̶e̶", "strike", Fonts.strike),
+    ("F༙r༙o༙z༙e༙n༙", "frozen", Fonts.frozen),
+    # ---- naye fonts ----
+    ("Ｆｕｌｌｗｉｄｔｈ", "fullwidth", Fonts.fullwidth),
+    ("S p a c e d", "spaced", Fonts.spaced),
+    ("ǝpᴉsd∩", "upside", Fonts.upside_down),
+    ("esreveR", "reverse", Fonts.reversed_text),
+    ("Ͼуяιℓℓι¢", "cyrillic", Fonts.cyrillic),
+    ("₵ɄⱤⱤɆ₦₵Ɏ", "currency", Fonts.currency),
+    ("Շђคเ", "thai", Fonts.thai),
+    ("⒫⒜⒭⒠⒩⒮", "parens", Fonts.parenthesized),
+    ("O̅v̅e̅r̅l̅i̅n̅e̅", "overline", Fonts.overline),
+    ("D̳o̳u̳b̳l̳e̳", "dunderline", Fonts.double_underline),
+    ("Ḍọṭṭẹḍ", "dotbelow", Fonts.dot_below),
+    ("Ḋȯṫȧḃȯv̇ė", "dotabove", Fonts.dot_above),
+    ("R̊i̊n̊g̊s̊", "rings", Fonts.rings),
+    ("T̃ĩl̃d̃ẽ", "tilde", Fonts.tilde),
+    ("C͓r͓o͓s͓s͓", "cross", Fonts.cross),
+    ("B̪r̪i̪d̪g̪e̪", "bridge", Fonts.bridge),
+    ("R̈öc̈k̈d̈öẗs̈", "rockdots", Fonts.rockdots),
+    ("G̴̗̍l̵̙̎ī̶̝t̷̟̅c̸̤̿h̴̦̑", "glitch", Fonts.glitch),
+    ("✨ Text ✨", "sparkles", Fonts.sparkles),
+    ("【Text】", "brackets", Fonts.brackets),
+    ("『Text』", "japanese", Fonts.japanese),
+    ("★彡 Text 彡★", "star", Fonts.star),
+    ("♡ Text ♡", "hearts", Fonts.hearts),
+    ("꧁༒ Text ༒꧂", "royal", Fonts.royal),
+    ("✿ Text ✿", "flower", Fonts.flower),
+    ("·.·´¯´·.·• Text •·.·´¯´·.·", "wave", Fonts.wave),
+    ("»»—— Text ——««", "pointer", Fonts.pointer),
+    ("🔥 Text 🔥", "fire", Fonts.fire),
+    ("♛ Text ♛", "crown", Fonts.crown),
+]
+
+
+FONT_STYLES = {key: func for _, key, func in FONT_LIST}
+FONTS_PER_ROW = 3
+FONTS_PER_PAGE = 9
+TOTAL_PAGES = (len(FONT_LIST) + FONTS_PER_PAGE - 1) // FONTS_PER_PAGE
+
+
+def font_buttons(page=0):
+    page = max(0, min(page, TOTAL_PAGES - 1))
+    chunk = FONT_LIST[page * FONTS_PER_PAGE : (page + 1) * FONTS_PER_PAGE]
+    rows = [
+        [
+            InlineKeyboardButton(label, callback_data=f"style+{key}")
+            for label, key, _ in chunk[i : i + FONTS_PER_ROW]
+        ]
+        for i in range(0, len(chunk), FONTS_PER_ROW)
+    ]
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("⬅ ʙᴀᴄᴋ", callback_data=f"page+{page - 1}"))
+    nav.append(InlineKeyboardButton(f"{page + 1}/{TOTAL_PAGES}", callback_data="noop"))
+    if page < TOTAL_PAGES - 1:
+        nav.append(InlineKeyboardButton("ɴᴇxᴛ ➻", callback_data=f"page+{page + 1}"))
+    rows.append(nav)
+    return InlineKeyboardMarkup(rows)
+
 
 @app.on_message(filters.command(["font", "fonts"]))
-async def style_buttons(c, m, cb=False):
-    buttons = [
-        [
-            InlineKeyboardButton("𝚃𝚢𝚙𝚎𝚠𝚛𝚒𝚝𝚎𝚛", callback_data="style+typewriter"),
-            InlineKeyboardButton("𝕆𝕦𝕥𝕝𝕚𝕟𝕖", callback_data="style+outline"),
-            InlineKeyboardButton("𝐒𝐞𝐫𝐢𝐟", callback_data="style+serif"),
-        ],
-        [
-            InlineKeyboardButton("𝑺𝒆𝒓𝒊𝒇", callback_data="style+bold_cool"),
-            InlineKeyboardButton("𝑆𝑒𝑟𝑖𝑓", callback_data="style+cool"),
-            InlineKeyboardButton("Sᴍᴀʟʟ Cᴀᴘs", callback_data="style+small_cap"),
-        ],
-        [
-            InlineKeyboardButton("𝓈𝒸𝓇𝒾𝓅𝓉", callback_data="style+script"),
-            InlineKeyboardButton("𝓼𝓬𝓻𝓲𝓹𝓽", callback_data="style+script_bolt"),
-            InlineKeyboardButton("ᵗⁱⁿʸ", callback_data="style+tiny"),
-        ],
-        [
-            InlineKeyboardButton("ᑕOᗰIᑕ", callback_data="style+comic"),
-            InlineKeyboardButton("𝗦𝗮𝗻𝘀", callback_data="style+sans"),
-            InlineKeyboardButton("𝙎𝙖𝙣𝙨", callback_data="style+slant_sans"),
-        ],
-        [
-            InlineKeyboardButton("𝘚𝘢𝘯𝘴", callback_data="style+slant"),
-            InlineKeyboardButton("𝖲𝖺𝗇𝗌", callback_data="style+sim"),
-            InlineKeyboardButton("Ⓒ︎Ⓘ︎Ⓡ︎Ⓒ︎Ⓛ︎Ⓔ︎Ⓢ︎", callback_data="style+circles"),
-        ],
-        [
-            InlineKeyboardButton("🅒︎🅘︎🅡︎🅒︎🅛︎🅔︎🅢︎", callback_data="style+circle_dark"),
-            InlineKeyboardButton("𝔊𝔬𝔱𝔥𝔦𝔠", callback_data="style+gothic"),
-            InlineKeyboardButton("𝕲𝖔𝖙𝖍𝖎𝖈", callback_data="style+gothic_bolt"),
-        ],
-        [
-            InlineKeyboardButton("C͜͡l͜͡o͜͡u͜͡d͜͡s͜͡", callback_data="style+cloud"),
-            InlineKeyboardButton("H̆̈ă̈p̆̈p̆̈y̆̈", callback_data="style+happy"),
-            InlineKeyboardButton("S̑̈ȃ̈d̑̈", callback_data="style+sad"),
-        ],
-        [InlineKeyboardButton("ɴᴇxᴛ ➻", callback_data="nxt")],
-    ]
-    if not cb:
-        await m.reply_text(
-            text=m.text.split(None, 1)[1],
-            reply_markup=InlineKeyboardMarkup(buttons),
-            quote=True,
-        )
-    else:
-        await m.answer()
-        await m.message.edit_reply_markup(InlineKeyboardMarkup(buttons))
+async def style_buttons(c, m):
+    if len(m.command) < 2:
+        return await m.reply_text("ᴜsᴀɢᴇ: `/font your text`", quote=True)
+    await m.reply_text(
+        text=m.text.split(None, 1)[1],
+        reply_markup=font_buttons(0),
+        quote=True,
+    )
 
 
+@app.on_callback_query(filters.regex(r"^page\+\d+$"))
+async def change_page(c, m):
+    page = int(m.data.split("+")[1])
+    await m.answer()
+    try:
+        await m.message.edit_reply_markup(font_buttons(page))
+    except BaseException:
+        pass
+
+
+# purane messages ke "ɴᴇxᴛ" / "ʙᴀᴄᴋ" buttons ke liye (backward compatible)
 @app.on_callback_query(filters.regex("^nxt"))
 async def nxt(c, m):
-    if m.data == "nxt":
-        buttons = [
-            [
-                InlineKeyboardButton("🇸 🇵 🇪 🇨 🇮 🇦 🇱 ", callback_data="style+special"),
-                InlineKeyboardButton("🅂🅀🅄🄰🅁🄴🅂", callback_data="style+squares"),
-                InlineKeyboardButton("🆂︎🆀︎🆄︎🅰︎🆁︎🅴︎🆂︎", callback_data="style+squares_bold"),
-            ],
-            [
-                InlineKeyboardButton("ꪖꪀᦔꪖꪶꪊᥴ𝓲ꪖ", callback_data="style+andalucia"),
-                InlineKeyboardButton("爪卂几ᘜ卂", callback_data="style+manga"),
-                InlineKeyboardButton("S̾t̾i̾n̾k̾y̾", callback_data="style+stinky"),
-            ],
-            [
-                InlineKeyboardButton("B̥ͦu̥ͦb̥ͦb̥ͦl̥ͦe̥ͦs̥ͦ", callback_data="style+bubbles"),
-                InlineKeyboardButton("U͟n͟d͟e͟r͟l͟i͟n͟e͟", callback_data="style+underline"),
-                InlineKeyboardButton("꒒ꍏꀷꌩꌃꀎꁅ", callback_data="style+ladybug"),
-            ],
-            [
-                InlineKeyboardButton("R҉a҉y҉s҉", callback_data="style+rays"),
-                InlineKeyboardButton("B҈i҈r҈d҈s҈", callback_data="style+birds"),
-                InlineKeyboardButton("S̸l̸a̸s̸h̸", callback_data="style+slash"),
-            ],
-            [
-                InlineKeyboardButton("s⃠t⃠o⃠p⃠", callback_data="style+stop"),
-                InlineKeyboardButton("S̺͆k̺͆y̺͆l̺͆i̺͆n̺͆e̺͆", callback_data="style+skyline"),
-                InlineKeyboardButton("A͎r͎r͎o͎w͎s͎", callback_data="style+arrows"),
-            ],
-            [
-                InlineKeyboardButton("ዪሀክቿነ", callback_data="style+qvnes"),
-                InlineKeyboardButton("S̶t̶r̶i̶k̶e̶", callback_data="style+strike"),
-                InlineKeyboardButton("F༙r༙o༙z༙e༙n༙", callback_data="style+frozen"),
-            ],
-            [InlineKeyboardButton("ʙᴀᴄᴋ", callback_data="nxt+0")],
-        ]
-        await m.answer()
-        await m.message.edit_reply_markup(InlineKeyboardMarkup(buttons))
-    else:
-        await style_buttons(c, m, cb=True)
+    await m.answer()
+    try:
+        await m.message.edit_reply_markup(font_buttons(1 if m.data == "nxt" else 0))
+    except BaseException:
+        pass
+
+
+@app.on_callback_query(filters.regex("^noop$"))
+async def noop(c, m):
+    await m.answer()
 
 
 @app.on_callback_query(filters.regex("^style"))
 async def style(c, m):
     await m.answer()
-    cmd, style = m.data.split("+")
-
-    if style == "typewriter":
-        cls = Fonts.typewriter
-    if style == "outline":
-        cls = Fonts.outline
-    if style == "serif":
-        cls = Fonts.serief
-    if style == "bold_cool":
-        cls = Fonts.bold_cool
-    if style == "cool":
-        cls = Fonts.cool
-    if style == "small_cap":
-        cls = Fonts.smallcap
-    if style == "script":
-        cls = Fonts.script
-    if style == "script_bolt":
-        cls = Fonts.bold_script
-    if style == "tiny":
-        cls = Fonts.tiny
-    if style == "comic":
-        cls = Fonts.comic
-    if style == "sans":
-        cls = Fonts.san
-    if style == "slant_sans":
-        cls = Fonts.slant_san
-    if style == "slant":
-        cls = Fonts.slant
-    if style == "sim":
-        cls = Fonts.sim
-    if style == "circles":
-        cls = Fonts.circles
-    if style == "circle_dark":
-        cls = Fonts.dark_circle
-    if style == "gothic":
-        cls = Fonts.gothic
-    if style == "gothic_bolt":
-        cls = Fonts.bold_gothic
-    if style == "cloud":
-        cls = Fonts.cloud
-    if style == "happy":
-        cls = Fonts.happy
-    if style == "sad":
-        cls = Fonts.sad
-    if style == "special":
-        cls = Fonts.special
-    if style == "squares":
-        cls = Fonts.square
-    if style == "squares_bold":
-        cls = Fonts.dark_square
-    if style == "andalucia":
-        cls = Fonts.andalucia
-    if style == "manga":
-        cls = Fonts.manga
-    if style == "stinky":
-        cls = Fonts.stinky
-    if style == "bubbles":
-        cls = Fonts.bubbles
-    if style == "underline":
-        cls = Fonts.underline
-    if style == "ladybug":
-        cls = Fonts.ladybug
-    if style == "rays":
-        cls = Fonts.rays
-    if style == "birds":
-        cls = Fonts.birds
-    if style == "slash":
-        cls = Fonts.slash
-    if style == "stop":
-        cls = Fonts.stop
-    if style == "skyline":
-        cls = Fonts.skyline
-    if style == "arrows":
-        cls = Fonts.arrows
-    if style == "qvnes":
-        cls = Fonts.rvnes
-    if style == "strike":
-        cls = Fonts.strike
-    if style == "frozen":
-        cls = Fonts.frozen
-    new_text = cls(m.message.reply_to_message.text.split(None, 1)[1])
+    _, key = m.data.split("+", 1)
+    func = FONT_STYLES.get(key)
+    if func is None:
+        return
+    try:
+        source = m.message.reply_to_message.text.split(None, 1)[1]
+    except (AttributeError, IndexError):
+        return
+    new_text = func(source)
     try:
         await m.message.edit_text(f"`{new_text}`")
     except BaseException:
